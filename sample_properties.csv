@@ -1,0 +1,21 @@
+address,suburb,postcode,price,bedrooms,sale_date
+12 Smith St,Parramatta,2150,850000,3,2024-03-14
+45 Church St,Parramatta,2150,720000,2,2024-05-02
+8 Station Rd,Parramatta,2150,1100000,4,2024-01-20
+3 Marsden St,Parramatta,2150,640000,2,2024-07-11
+22 Campbell Pde,Bondi,2026,2350000,3,2024-02-08
+101 Beach Rd,Bondi,2026,1850000,2,2024-04-19
+7 Curlewis St,Bondi,2026,3100000,4,2024-06-25
+15 Hall St,Bondi,2026,1600000,1,2024-08-03
+64 King St,Newtown,2042,1450000,3,2024-03-30
+9 Enmore Rd,Newtown,2042,980000,2,2024-05-17
+31 Australia St,Newtown,2042,1720000,3,2024-09-05
+5 Wilson St,Newtown,2042,890000,1,2024-02-27
+18 Victoria Ave,Chatswood,2067,1950000,3,2024-04-08
+77 Archer St,Chatswood,2067,1250000,2,2024-06-14
+2 Help St,Chatswood,2067,2400000,4,2024-01-31
+40 Albert Ave,Chatswood,2067,,2,2024-07-22
+26 Pacific Hwy,Penrith,2750,780000,3,2024-05-29
+11 High St,Penrith,2750,910000,4,2024-03-06
+53 Lethbridge St,Penrith,2750,690000,3,2024-08-16
+9 Station St,Penrith,2750,550000,2,2024-09-12
