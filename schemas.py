@@ -12,3 +12,10 @@ class PropertyOut(BaseModel):
     price: float | None = None
     bedrooms: int | None = None
     sale_date: date | None = None
+
+class SuburbStatsOut(BaseModel):
+    suburb: str
+    count: int
+    avg_price: float | None = None
+    min_price: float | None = None
+    max_price: float | None = None
