@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Query
+from fastapi import FastAPI, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.operators import ilike_op
 from sqlalchemy import func, extract
@@ -79,3 +79,13 @@ def properties_id(
        {"year_month": "-".join([str(row[0]), str(row[1])]), "avg_price": row[2], "count": row[3]}
        for row in results
    ]
+
+@app.get("/properties/{id}", response_model=PropertyOut)
+def read_id(
+    id: int,
+    db: Session = Depends(get_db),
+):  
+   property = db.get(models.Property, id)
+   if not property:
+       raise HTTPException(status_code=404, detail="not found")
+   return ( property )
