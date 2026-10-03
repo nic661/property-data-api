@@ -1,10 +1,10 @@
 from fastapi import FastAPI, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.operators import ilike_op
-from sqlalchemy import func, select
+from sqlalchemy import func, extract
 from database import Base, engine, get_db
 import models
-from schemas import PropertyOut, SuburbStatsOut
+from schemas import PropertyOut, SuburbStatsOut, PriceTrendOut
 
 Base.metadata.create_all(engine)
 
@@ -58,3 +58,24 @@ def suburb_stats(
         {"suburb": row[0], "count": row[1], "avg_price": row[2], "min_price": row[3], "max_price": row[4]}
         for row in results
     ]
+
+@app.get("/properties/trend", response_model=list[PriceTrendOut])
+def properties_id(
+    db: Session = Depends(get_db),
+):  
+   results = db.query(
+       extract('year', models.Property.sale_date), 
+       extract('month', models.Property.sale_date),
+       func.round(func.avg(models.Property.price), 2),
+       func.count(models.Property.id)
+    ).group_by(
+        extract('year', models.Property.sale_date), 
+        extract('month', models.Property.sale_date)
+    ).order_by(
+        extract('year', models.Property.sale_date), 
+        extract('month', models.Property.sale_date)
+    ).all()
+   return [
+       {"year_month": "-".join([str(row[0]), str(row[1])]), "avg_price": row[2], "count": row[3]}
+       for row in results
+   ]
