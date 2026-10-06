@@ -1,6 +1,6 @@
 # python class -> table
 
-from sqlalchemy import Column, Integer, String, Date, BigInteger, Text, Float, Boolean
+from sqlalchemy import Column, Integer, String, Date, BigInteger, Text, Float, Boolean, Index
 from database import Base
 
 class Property(Base):
@@ -28,3 +28,7 @@ class Property(Base):
     is_multi_property_sale = Column(Boolean, nullable=False, default=False)
     download_date = Column(Date, nullable=True)
     sale_key = Column(String(32), nullable=False, unique=True)
+
+    __table_args__ = (
+        Index("ix_properties_suburb_contract_date", "suburb", "contract_date"),
+    )
