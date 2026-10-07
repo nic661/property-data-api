@@ -83,8 +83,7 @@ docker compose up -d db
 pytest -v
 ```
 
-## Limitations and next steps
+## Limitations
 
 - `property_type` has nuance, some early records use numeric council codes, recent months are incomplete (January 2024 has 16 sales against roughly 60 typical), and all-time stats mix 34 years of prices.
 - No authentication, logging or deployment yet.
-- Next: a materialized view for all-suburb stats, Alembic migrations, a date range on stats, API keys, and AWS (ECS + RDS) with CloudWatch.
