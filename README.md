@@ -80,6 +80,7 @@ Ingestion is safe to stop and re-run; `--limit N` loads only the first N rows, a
 
 ```bash
 docker compose up -d db
+docker compose exec db psql -U postgres -c "CREATE DATABASE test_db;"
 pytest -v
 ```
 
