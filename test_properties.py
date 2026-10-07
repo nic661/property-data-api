@@ -11,9 +11,10 @@ def create_property(db_session, **kwargs):
         "post_code": "2150",
         "purchase_price": 750000,
         "contract_date": date(2024, 1, 15),
-        "property_type": "Residence",
+        "property_type": "house",
         "is_multi_property_sale": False,
         "sale_key": f"test_key_{count + 1}",
+        "nature_of_property": "R",
     }
     defaults.update(kwargs)
     prop = Property(**defaults)
@@ -42,6 +43,15 @@ def test_list_properties_with_data(client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
+
+def test_house_unit_properties_with_data(client, db_session):
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=800000, property_type="house")
+    create_property(db_session, suburb="ST MARYS", purchase_price=600000, property_type="unit")
+
+    response = client.get("/properties?property_type=house")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
 
 
 def test_filter_properties_by_suburb(client, db_session):
@@ -84,6 +94,37 @@ def test_suburb_stats(client, db_session):
     assert data[0]["min_price"] == 500000
     assert data[0]["max_price"] == 1000000
 
+def test_suburb_stats_exclusions(client, db_session):
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=1000000)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=2000000)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=900000, is_multi_property_sale=True)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=9000000, nature_of_property="V")
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=500)
+
+    response = client.get("/stats/suburbs?suburb=PARRAMATTA")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["suburb"] == "PARRAMATTA"
+    assert data[0]["count"] == 2
+    assert data[0]["avg_price"] == 1500000
+    assert data[0]["min_price"] == 1000000
+    assert data[0]["max_price"] == 2000000
+    assert data[0]["median_price"] == 1500000
+
+def test_suburb_stats_exclude_exclusions_and_inclusions(client, db_session):
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=1000000)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=2000000)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=900000, is_multi_property_sale=True)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=9000000, nature_of_property="V")
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=500)
+
+    response = client.get("/stats/suburbs?suburb=PARRAMATTA&min_price=0")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["suburb"] == "PARRAMATTA"
+    assert data[0]["count"] == 3
 
 def test_price_trends(client, db_session):
     create_property(
@@ -105,4 +146,21 @@ def test_price_trends(client, db_session):
     assert len(data) == 1
     assert data[0]["year_month"] == "2023-05"
     assert data[0]["avg_price"] == 700000.0
+    assert data[0]["count"] == 2
+
+def test_price_trends_exclusions(client, db_session):
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=1000000, contract_date=date(2023, 5, 10),)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=2000000, contract_date=date(2023, 5, 10),)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=900000, is_multi_property_sale=True, contract_date=date(2023, 5, 10),)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=9000000, nature_of_property="V", contract_date=date(2023, 5, 10),)
+    create_property(db_session, suburb="PARRAMATTA", purchase_price=500, contract_date=date(2023, 5, 10),)
+    
+
+    response = client.get("/properties/trend?suburb=PARRAMATTA")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["year_month"] == "2023-05"
+    assert data[0]["avg_price"] == 1500000
+    assert data[0]["median_price"] == 1500000
     assert data[0]["count"] == 2

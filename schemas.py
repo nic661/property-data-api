@@ -26,10 +26,12 @@ class SuburbStatsOut(BaseModel):
     suburb: str
     count: int
     avg_price: float | None = None
+    median_price: float | None = None
     min_price: float | None = None
     max_price: float | None = None
 
 class PriceTrendOut(BaseModel):
     year_month: str
     avg_price: float
+    median_price: float
     count: int
