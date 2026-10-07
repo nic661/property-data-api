@@ -5,7 +5,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from cleaning import clean_row
-from database import SessionLocal
+from database import SessionLocal, Base, engine
 from models import Property
 
 BATCH_SIZE = 1000
@@ -32,6 +32,7 @@ def insert_batch(db, batch):
 
 
 def run(csv_path, limit):
+    Base.metadata.create_all(engine)
     db = SessionLocal()
     rows_read = 0
     rejected = 0
