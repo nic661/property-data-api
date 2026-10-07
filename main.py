@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.operators import ilike_op
 from sqlalchemy import func, extract
 from database import Base, engine, get_db
 import models
@@ -9,6 +8,14 @@ from schemas import PropertyOut, SuburbStatsOut, PriceTrendOut
 Base.metadata.create_all(engine)
 
 app = FastAPI()
+
+def valid_sales(query, residential_only: bool, min_price: int):
+    """Exclude bundled sales; optionally keep only residential (nature_of_property 'R')."""
+    query = query.filter(models.Property.is_multi_property_sale.is_(False))
+    query = query.filter(models.Property.purchase_price >= min_price)
+    if residential_only:
+        query = query.filter(models.Property.nature_of_property == "R")
+    return query
 
 @app.get("/health")
 def health():
@@ -27,9 +34,9 @@ def list_properties(
     query = db.query(models.Property)
 
     if suburb:
-        query = query.filter(models.Property.suburb.ilike(suburb))
+        query = query.filter(models.Property.suburb == suburb.strip().upper())
     if property_type:
-        query = query.filter(models.Property.property_type.ilike(property_type))
+        query = query.filter(models.Property.property_type == property_type.strip().lower())
     if min_price is not None:
         query = query.filter(models.Property.purchase_price >= min_price)
     if max_price is not None:
@@ -46,6 +53,8 @@ def list_properties(
 @app.get("/stats/suburbs", response_model=list[SuburbStatsOut])
 def suburb_stats(
     suburb: str | None = None,
+    residential_only: bool = True,
+    min_price: int = Query(10_000, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
@@ -53,12 +62,14 @@ def suburb_stats(
         models.Property.suburb,
         func.count(models.Property.id).label("count"),
         func.round(func.avg(models.Property.purchase_price), 2).label("avg_price"),
+        func.percentile_cont(0.5).within_group(models.Property.purchase_price).label("median_price"),
         func.min(models.Property.purchase_price).label("min_price"),
         func.max(models.Property.purchase_price).label("max_price"),
     )
+    query = valid_sales(query, residential_only, min_price)
 
     if suburb:
-        query = query.filter(models.Property.suburb.ilike(suburb))
+        query = query.filter(models.Property.suburb == suburb.strip().upper())
 
     results = (
         query
@@ -73,8 +84,9 @@ def suburb_stats(
             "suburb": row[0],
             "count": row[1],
             "avg_price": float(row[2]) if row[2] else None,
-            "min_price": row[3],
-            "max_price": row[4],
+            "median_price": round(float(row[3]), 2) if row[3] else None,
+            "min_price": row[4],
+            "max_price": row[5],
         }
         for row in results
     ]
@@ -82,6 +94,8 @@ def suburb_stats(
 @app.get("/properties/trend", response_model=list[PriceTrendOut])
 def price_trends(
     suburb: str | None = None,
+    residential_only: bool = True,
+    min_price: int = Query(10_000, ge=0),
     db: Session = Depends(get_db),
 ):
     year_col = extract("year", models.Property.contract_date)
@@ -91,11 +105,13 @@ def price_trends(
         year_col,
         month_col,
         func.round(func.avg(models.Property.purchase_price), 2).label("avg_price"),
+        func.percentile_cont(0.5).within_group(models.Property.purchase_price).label("median_price"),
         func.count(models.Property.id).label("count"),
     )
+    query = valid_sales(query, residential_only, min_price)
 
     if suburb:
-        query = query.filter(models.Property.suburb.ilike(suburb))
+        query = query.filter(models.Property.suburb == suburb.strip().upper())
 
     results = (
         query
@@ -108,7 +124,8 @@ def price_trends(
         {
             "year_month": f"{int(row[0])}-{int(row[1]):02d}",
             "avg_price": float(row[2]) if row[2] else 0.0,
-            "count": row[3],
+            "median_price": round(float(row[3]), 2) if row[3] else 0.0,
+            "count": row[4],
         }
         for row in results
     ]

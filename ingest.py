@@ -1,7 +1,7 @@
 import argparse
 import csv
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 
 from cleaning import clean_row
@@ -10,11 +10,24 @@ from models import Property
 
 BATCH_SIZE = 1000
 
+FLAG_BUNDLED_SQL = text("""
+    UPDATE properties SET is_multi_property_sale = TRUE
+    WHERE is_multi_property_sale = FALSE
+      AND id IN (
+        SELECT id FROM (
+            SELECT id, count(*) OVER (
+                PARTITION BY council_name, contract_date, settlement_date, purchase_price
+            ) AS n
+            FROM properties
+        ) t
+        WHERE n > 1
+    )
+""")
 
 def insert_batch(db, batch):
-    """Insert cleaned rows, silently skipping any whose sale_key already exists."""
-    stmt = insert(Property).on_conflict_do_nothing(index_elements=["sale_key"])
-    db.execute(stmt, batch)
+    """Insert cleaned rows in one statement, skipping any whose sale_key already exists."""
+    stmt = insert(Property).values(batch).on_conflict_do_nothing(index_elements=["sale_key"])
+    db.execute(stmt)
     db.commit()
 
 
@@ -30,7 +43,7 @@ def run(csv_path, limit):
              open("rejects.csv", "w", newline="", encoding="utf-8") as rf:
             reader = csv.DictReader(f)
             rejects = csv.writer(rf)
-            rejects.writerow(["line", "reason", "address"])
+            rejects.writerow(["line", "reason", "address", "contract_date"])
 
             for row in reader:
                 if limit and rows_read >= limit:
@@ -40,7 +53,7 @@ def run(csv_path, limit):
                 record, reason = clean_row(row)
                 if record is None:
                     rejected += 1
-                    rejects.writerow([reader.line_num, reason, row.get("address")])
+                    rejects.writerow([reader.line_num, reason, row.get("address"), row.get("contract_date")])
                     continue
 
                 batch.append(record)
@@ -51,6 +64,10 @@ def run(csv_path, limit):
 
             if batch:
                 insert_batch(db, batch)
+        
+        print("Flagging bundled sales...")
+        db.execute(FLAG_BUNDLED_SQL)
+        db.commit()
 
         after = db.scalar(select(func.count(Property.id)))
         inserted = after - before

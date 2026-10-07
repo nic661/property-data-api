@@ -219,3 +219,6 @@ __marimo__/
 
 # tests
 rejects.csv
+
+# files
+nsw_property_data.csv
