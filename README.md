@@ -12,6 +12,50 @@ Sales records from the [NSW Valuer General](https://valuation.property.nsw.gov.a
 
 4,854,814 source rows became **4,623,974 stored sales**: 17,892 rejected (0.37%: price of 0 or blank, contract date before 1990, no usable suburb) and 212,948 collapsed as republished duplicates. Another 348,467 stored rows belong to bundled sales (one contract, price repeated on every lot). They are flagged, kept, and excluded from statistics.
 
+## Architecture
+
+                  NSW PROPERTY SALES DATA
+                       4.85M rows
+                           |
+                           v
+              +-------------------------+
+              |   PYTHON INGESTION      |
+              |-------------------------|
+              |  CSV batch processing   |
+              |  Data validation        |
+              |  Cleaning & deduplication|
+              |  Bundled sale detection |
+              +-------------------------+
+                    |           |
+             Valid records   Rejected rows
+                    |           |
+                    v           v
+          +----------------+  rejects.csv
+          |   POSTGRESQL   |
+          |----------------|
+          |  4.62M sales   |
+          |  Indexed data  |
+          +----------------+
+                    |
+                    v
+              +-------------------------+
+              |       FASTAPI           |
+              |-------------------------|
+              |  Property search        |
+              |  Property details       |
+              |  Suburb statistics      |
+              |  Monthly price trends   |
+              |  Health check           |
+              +-------------------------+
+                    |
+                    v
+          +--------------------------+
+          |       API ACCESS         |
+          |--------------------------|
+          |  Swagger UI (/docs)      |
+          |  REST API clients        |
+          +--------------------------+
+
 ## Endpoints
 
 | Endpoint | Notes |
@@ -24,11 +68,11 @@ Sales records from the [NSW Valuer General](https://valuation.property.nsw.gov.a
 
 ## Data decisions
 
-- **Sale key.** There is no sale ID. `property_id` identifies a property, is sometimes blank, and a later copy of a record can fill it in. The unique key is an MD5 fingerprint of address + contract date + price + legal description (normalised). Legal description matters because different lots sold together share an address and price: in a 5,000-row sample, adding it cut collisions from 70 to 57.
+- **Unique Sale key.** With no sale ID, `property_id` being inconsistent: sometimes identifies a property, sometimes blank, and duplicated. The unique key is an MD5 fingerprint of address + contract date + price + legal description. With legal description being a key differentiator, because different lots sold together share an address and price: in a 5,000-row sample, adding it cut collisions from 70 to 57.
 - **Contract date, not settlement date.** Settlement can lag by years.
 - **Bundled sales** are flagged where council, contract date, settlement date and price all match (142,230 groups). The cost is occasional false positives.
-- **Residential only, $10,000 price floor, median.** Sales under $10k are mostly transfers and partial interests (0.15% of residential rows). Medians matter: Parramatta's monthly average hit $2.21M in March 2023 while the median stayed near $625k.
-- **Reject, don't repair.** Bad rows go to `rejects.csv` with a reason. Year-1024 dates are probably typos for 2024, but I don't guess.
+- **Residential only, $10,000 price floor** Sales under $10k are mostly transfers and partial interests (0.15% of residential rows) and were omitted.
+- **Reject instead of repairing columns** During injesting, bad rows go to `rejects.csv` with a text reason. No repairing was done as it would assume data.
 
 ## Performance
 
